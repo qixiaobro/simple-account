@@ -1,10 +1,16 @@
 import { useState } from 'react';
-import { Transaction, Account } from '../types';
+import { Account, Transaction } from '../types';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RefundDialog } from './RefundDialog';
 
 export default function TransactionList({ transactions, accounts, onTransactionEdited, onTransactionDeleted }: { transactions: Transaction[], accounts: Account[], onTransactionEdited: () => void, onTransactionDeleted: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedTransaction, setEditedTransaction] = useState<Partial<Transaction>>({});
-  const [refundFee, setRefundFee] = useState(true);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   const handleEdit = (transaction: Transaction) => {
     setEditingId(transaction.id);
@@ -23,15 +29,18 @@ export default function TransactionList({ transactions, accounts, onTransactionE
     }
   };
 
-  const handleRefund = async (transaction: Transaction) => {
-    const response = await fetch(`/api/transactions/${transaction.id}/refund`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refundFee }),
-    });
-    if (response.ok) {
-      await response.json();
-      onTransactionEdited();
+  const handleRefund = async (amount: number, refundFee: boolean) => {
+    if (selectedTransaction) {
+      const response = await fetch(`/api/transactions/${selectedTransaction.id}/refund`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, refundFee }),
+      });
+      if (response.ok) {
+        await response.json();
+        onTransactionEdited();
+        setRefundDialogOpen(false);
+      }
     }
   };
 
@@ -45,120 +54,122 @@ export default function TransactionList({ transactions, accounts, onTransactionE
   };
 
   return (
-    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">账户</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">金额</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">手续费</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备注</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {transactions.map((transaction) => (
-            <tr key={transaction.id}>
-              <td className="px-6 py-4 whitespace-nowrap">
-                {editingId === transaction.id ? (
-                  <select
-                    value={editedTransaction.accountId}
-                    onChange={(e) => setEditedTransaction({ ...editedTransaction, accountId: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  >
+    <>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>账户</TableHead>
+          <TableHead>金额</TableHead>
+          <TableHead>手续费</TableHead>
+          <TableHead>类型</TableHead>
+          <TableHead>状态</TableHead>
+          <TableHead>备注</TableHead>
+          <TableHead>时间</TableHead>
+          <TableHead>操作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {transactions.map((transaction) => (
+          <TableRow key={transaction.id}>
+            <TableCell>
+              {editingId === transaction.id ? (
+                <Select onValueChange={(value) => setEditedTransaction({ ...editedTransaction, accountId: value })} value={editedTransaction.accountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择账户" />
+                  </SelectTrigger>
+                  <SelectContent>
                     {accounts.map((account) => (
-                      <option key={account.id} value={account.id}>{account.name}</option>
+                      <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
                     ))}
-                  </select>
-                ) : (
-                  accounts.find(a => a.id === transaction.accountId)?.name
-                )}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                {editingId === transaction.id ? (
-                  <input
-                    type="number"
-                    value={editedTransaction.amount}
-                    onChange={(e) => setEditedTransaction({ ...editedTransaction, amount: parseFloat(e.target.value) })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  />
-                ) : (
-                  transaction.status === 'refunded' && !refundFee
-                    ? `--/${transaction.amount.toFixed(2)}`
-                    : transaction.amount.toFixed(2)
-                )}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                {editingId === transaction.id ? (
-                  <input
-                    type="number"
-                    value={editedTransaction.fee}
-                    onChange={(e) => setEditedTransaction({ ...editedTransaction, fee: parseFloat(e.target.value) })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  />
-                ) : (
-                  transaction.fee.toFixed(2)
-                )}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                {editingId === transaction.id ? (
-                  <select
-                    value={editedTransaction.type}
-                    onChange={(e) => setEditedTransaction({ ...editedTransaction, type: e.target.value as 'income' | 'expense' })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  >
-                    <option value="income">收入</option>
-                    <option value="expense">支出</option>
-                  </select>
-                ) : (
-                  transaction.type === 'income' ? '收入' : '支出'
-                )}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                {transaction.status === 'normal' ? '正常' : '已退款'}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                {editingId === transaction.id ? (
-                  <input
-                    type="text"
-                    value={editedTransaction.note}
-                    onChange={(e) => setEditedTransaction({ ...editedTransaction, note: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  />
-                ) : (
-                  transaction.note
-                )}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">{new Date(transaction.createdAt).toLocaleString()}</td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                {editingId === transaction.id ? (
-                  <button onClick={() => handleSave(transaction)} className="text-indigo-600 hover:text-indigo-900 mr-2">保存</button>
-                ) : (
-                  <>
-                    <button onClick={() => handleEdit(transaction)} className="text-indigo-600 hover:text-indigo-900 mr-2">编辑</button>
-                    <button onClick={() => handleRefund(transaction)} className="text-yellow-600 hover:text-yellow-900 mr-2">
+                  </SelectContent>
+                </Select>
+              ) : (
+                accounts.find(a => a.id === transaction.accountId)?.name
+              )}
+            </TableCell>
+            <TableCell>
+              {editingId === transaction.id ? (
+                <Input
+                  type="number"
+                  value={editedTransaction.amount?.toString()}
+                  onChange={(e) => setEditedTransaction({ ...editedTransaction, amount: parseFloat(e.target.value) })}
+                />
+              ) : (
+                transaction.amount.toFixed(2)
+              )}
+            </TableCell>
+            <TableCell>
+              {editingId === transaction.id ? (
+                <Input
+                  type="number"
+                  value={editedTransaction.fee?.toString()}
+                  onChange={(e) => setEditedTransaction({ ...editedTransaction, fee: parseFloat(e.target.value) })}
+                />
+              ) : (
+                transaction.fee.toFixed(2)
+              )}
+            </TableCell>
+            <TableCell>
+              {editingId === transaction.id ? (
+                <Select onValueChange={(value) => setEditedTransaction({ ...editedTransaction, type: value as 'income' | 'expense' })} value={editedTransaction.type}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择类型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="income">收入</SelectItem>
+                    <SelectItem value="expense">支出</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                transaction.type === 'income' ? '收入' : '支出'
+              )}
+            </TableCell>
+            <TableCell>
+              {transaction.status === 'normal' ? '正常' : '已退款'}
+            </TableCell>
+            <TableCell>
+              {editingId === transaction.id ? (
+                <Input
+                  value={editedTransaction.note}
+                  onChange={(e) => setEditedTransaction({ ...editedTransaction, note: e.target.value })}
+                />
+              ) : (
+                transaction.note
+              )}
+            </TableCell>
+            <TableCell>{new Date(transaction.createdAt).toLocaleString()}</TableCell>
+            <TableCell>
+              {editingId === transaction.id ? (
+                <Button onClick={() => handleSave(transaction)}>保存</Button>
+              ) : (
+                <>
+                  <Button onClick={() => handleEdit(transaction)} variant="outline" className="mr-2">编辑</Button>
+                  <Button 
+                      onClick={() => {
+                        setSelectedTransaction(transaction);
+                        setRefundDialogOpen(true);
+                      }} 
+                      variant="outline" 
+                      className="mr-2"
+                    >
                       退款
-                    </button>
-                    <label className="inline-flex items-center ml-2">
-                      <input
-                        type="checkbox"
-                        checked={refundFee}
-                        onChange={(e) => setRefundFee(e.target.checked)}
-                        className="form-checkbox h-4 w-4 text-indigo-600"
-                      />
-                      <span className="ml-2 text-sm">退手续费</span>
-                    </label>
-                    <button onClick={() => handleDelete(transaction)} className="text-red-600 hover:text-red-900">删除</button>
-                  </>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+                    </Button>
+                  <Button onClick={() => handleDelete(transaction)} variant="destructive">删除</Button>
+                </>
+              )}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+    {selectedTransaction && (
+      <RefundDialog
+        open={refundDialogOpen}
+        onOpenChange={setRefundDialogOpen}
+        onRefund={handleRefund}
+        maxAmount={selectedTransaction.amount}
+      />
+    )}
+    </>
   );
 }
