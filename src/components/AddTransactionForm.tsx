@@ -6,19 +6,21 @@ export default function AddTransactionForm({ accounts, onTransactionAdded }: { a
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [note, setNote] = useState('');
+  const [fee, setFee] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const response = await fetch('/api/transactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accountId, amount: parseFloat(amount), type, note }),
+      body: JSON.stringify({ accountId, amount: parseFloat(amount), type, note, fee: parseFloat(fee) }),
     });
     if (response.ok) {
       setAccountId('');
       setAmount('');
       setType('expense');
       setNote('');
+      setFee('');
       onTransactionAdded();
     }
   };
@@ -47,6 +49,17 @@ export default function AddTransactionForm({ accounts, onTransactionAdded }: { a
           id="amount"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+          required
+        />
+      </div>
+      <div className="mb-4">
+        <label htmlFor="fee" className="block text-sm font-medium text-gray-700">手续费</label>
+        <input
+          type="number"
+          id="fee"
+          value={fee}
+          onChange={(e) => setFee(e.target.value)}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
           required
         />

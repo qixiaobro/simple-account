@@ -50,7 +50,7 @@ export function updateAccountBalance(accountId: string, newBalance: number): Acc
   return null;
 }
 
-export function addTransaction(accountId: string, amount: number, type: 'income' | 'expense', note: string): Transaction {
+export function addTransaction(accountId: string, amount: number, type: 'income' | 'expense', note: string, fee: number): Transaction {
   const data = readData();
   const newTransaction: Transaction = {
     id: uuidv4(),
@@ -58,6 +58,7 @@ export function addTransaction(accountId: string, amount: number, type: 'income'
     amount,
     type,
     note,
+    fee,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     status: 'normal'
@@ -66,7 +67,7 @@ export function addTransaction(accountId: string, amount: number, type: 'income'
   
   const account = data.accounts.find(a => a.id === accountId);
   if (account) {
-    account.balance += type === 'income' ? amount : -amount;
+    account.balance += type === 'income' ? (amount - fee) : -(amount + fee);
   }
   
   writeData(data);
@@ -99,20 +100,26 @@ export function editTransaction(id: string, updates: Partial<Transaction>): Tran
   return newTransaction;
 }
 
-export function refundTransaction(id: string): Transaction | null {
+export function refundTransaction(id: string, refundFee: boolean): Transaction | null {
   const data = readData();
   const transaction = data.transactions.find(t => t.id === id);
   if (!transaction) return null;
 
   const account = data.accounts.find(a => a.id === transaction.accountId);
   if (account) {
-    account.balance -= transaction.type === 'income' ? transaction.amount : -transaction.amount;
+    const refundAmount = transaction.type === 'income' 
+      ? transaction.amount - (refundFee ? 0 : transaction.fee)
+      : -(transaction.amount + (refundFee ? transaction.fee : 0));
+    account.balance -= refundAmount;
   }
 
   transaction.updatedAt = new Date().toISOString();
   transaction.status = 'refunded';
+  if (!refundFee) {
+    transaction.amount -= transaction.fee;
+  }
   writeData(data);
-  return transaction;
+  return transaction;;
 }
 
 export function deleteTransaction(id: string): boolean {

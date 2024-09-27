@@ -14,7 +14,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const { id } = params;
-  const refundedTransaction = refundTransaction(id);
+  const { refundFee } = await request.json();
+  const refundedTransaction = refundTransaction(id, refundFee);
   if (refundedTransaction) {
     return NextResponse.json(refundedTransaction);
   } else {

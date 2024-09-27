@@ -4,6 +4,7 @@ import { Transaction, Account } from '../types';
 export default function TransactionList({ transactions, accounts, onTransactionEdited, onTransactionDeleted }: { transactions: Transaction[], accounts: Account[], onTransactionEdited: () => void, onTransactionDeleted: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedTransaction, setEditedTransaction] = useState<Partial<Transaction>>({});
+  const [refundFee, setRefundFee] = useState(true);
 
   const handleEdit = (transaction: Transaction) => {
     setEditingId(transaction.id);
@@ -25,6 +26,8 @@ export default function TransactionList({ transactions, accounts, onTransactionE
   const handleRefund = async (transaction: Transaction) => {
     const response = await fetch(`/api/transactions/${transaction.id}/refund`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refundFee }),
     });
     if (response.ok) {
       await response.json();
@@ -48,6 +51,7 @@ export default function TransactionList({ transactions, accounts, onTransactionE
           <tr>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">账户</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">金额</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">手续费</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备注</th>
@@ -82,7 +86,21 @@ export default function TransactionList({ transactions, accounts, onTransactionE
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                   />
                 ) : (
-                  transaction.amount.toFixed(2)
+                  transaction.status === 'refunded' && !refundFee
+                    ? `--/${transaction.amount.toFixed(2)}`
+                    : transaction.amount.toFixed(2)
+                )}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                {editingId === transaction.id ? (
+                  <input
+                    type="number"
+                    value={editedTransaction.fee}
+                    onChange={(e) => setEditedTransaction({ ...editedTransaction, fee: parseFloat(e.target.value) })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                  />
+                ) : (
+                  transaction.fee.toFixed(2)
                 )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
@@ -121,7 +139,18 @@ export default function TransactionList({ transactions, accounts, onTransactionE
                 ) : (
                   <>
                     <button onClick={() => handleEdit(transaction)} className="text-indigo-600 hover:text-indigo-900 mr-2">编辑</button>
-                    <button onClick={() => handleRefund(transaction)} className="text-yellow-600 hover:text-yellow-900 mr-2">退款</button>
+                    <button onClick={() => handleRefund(transaction)} className="text-yellow-600 hover:text-yellow-900 mr-2">
+                      退款
+                    </button>
+                    <label className="inline-flex items-center ml-2">
+                      <input
+                        type="checkbox"
+                        checked={refundFee}
+                        onChange={(e) => setRefundFee(e.target.checked)}
+                        className="form-checkbox h-4 w-4 text-indigo-600"
+                      />
+                      <span className="ml-2 text-sm">退手续费</span>
+                    </label>
                     <button onClick={() => handleDelete(transaction)} className="text-red-600 hover:text-red-900">删除</button>
                   </>
                 )}

@@ -13,4 +13,5 @@ export interface Transaction {
   createdAt: string;
   updatedAt: string;
   status: 'normal' | 'refunded';
+  fee: number;
 }
